@@ -1,13 +1,37 @@
+import json
 from fastapi import APIRouter, HTTPException
 from app.models.request_body import RequestBody
-from app.services.gpt_service import generate_git_diff, generate_repo_summary, reflect_on_diff
-from app.services.repo_service import clone_repo_if_needed, read_files_in_repo, clean_repo
+from app.services.gpt_service import suggest_code_improvements, generate_repo_summary, reflect_on_diff
+from app.services.repo_service import GitRepo
 import logging
+import hashlib
+import difflib
+import os
 
 router = APIRouter()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def compute_sha1(content):
+    """Compute SHA-1 hash of the given content."""
+    header = f"blob {len(content)}\0".encode('utf-8')
+    store = header + content
+    sha1 = hashlib.sha1(store).hexdigest()
+    return sha1
+
+def generate_git_diff(old_content, new_content, filename):
+    """Generate a git diff between old and new content."""
+    old_lines = old_content.splitlines(keepends=True)
+    new_lines = new_content.splitlines(keepends=True)
+    
+    diff = difflib.unified_diff(
+        old_lines, new_lines, 
+        fromfile=f"a/{filename}", 
+        tofile=f"b/{filename}",
+        lineterm=""
+    )
+    return ''.join(diff)
 
 @router.post("/")
 async def generate_diff(request: RequestBody):
@@ -17,31 +41,42 @@ async def generate_diff(request: RequestBody):
     logger.info(f"Received request with repoUrl: {repo_url} and prompt: {prompt}")
 
     try:
-        repo_path, cloned = clone_repo_if_needed(repo_url)
-        if cloned:
-            logger.info(f"Cloned repository to {repo_path}")
-        else:
-            logger.info(f"Repository already up to date at {repo_path}")
+        git_repo = GitRepo(repo_url)
+        git_repo.setup_local_repo()
 
-        file_contents = read_files_in_repo(repo_path)
+        file_contents = git_repo.get_repo_contents()
         repo_summary = generate_repo_summary(file_contents)
 
-        # Step 1: Generate the primary diff
-        primary_response = generate_git_diff(prompt, repo_summary)
-        logger.info(f"Primary response from GPT: {primary_response}")
+        # Step 1: Suggest code improvements
+        suggested_changes = suggest_code_improvements(prompt, repo_summary)
+        logger.info(f"Primary response from GPT: {suggested_changes}")
 
-        # Step 2: Run reflection on the primary diff
-        reflection_prompt = f"Here is the diff:\n{primary_response}\nIs this correct, or would you like to make any corrections?"
-        reflection_response = reflect_on_diff(reflection_prompt, repo_summary)
-        logger.info(f"Reflection response from GPT: {reflection_response}")
+        # Example structure for suggested_changes:
+        # suggested_changes = {
+        #     "src/main.py": {
+        #         "old_code": "os.system('bash temp.sh')",
+        #         "new_code": """if os.name == 'nt':
+        #         os.system('powershell.exe .\\temp.sh')
+        #     else:
+        #         os.system('bash temp.sh')"""
+        #     }
+        # }
+        diff = git_repo.get_git_diff(json.loads(suggested_changes))
 
-        # Use the reflection response if it differs from the primary response
-        final_response = reflection_response if reflection_response != primary_response else primary_response
+        # # Step 2: Run reflection on the diff
+        reflected_changes = reflect_on_diff(diff, repo_summary)
+        logger.info(f"Reflection response from GPT: {reflected_changes}")
+        reflection = json.loads(reflected_changes)
+        if len(reflection["corrections"]) > 0:
+            # Use the reflected changes if they are provided
+            final_diff = git_repo.get_git_diff(reflection["corrections"])
+        else:
+            final_diff = diff
 
-        clean_repo(repo_path)
-        logger.info("Cleaned up repository")
+        # Save the final diff to a file
+        logger.info(f"Generated diff:\n{final_diff}")
 
-        return {"diff": final_response}
+        return {"diff": final_diff}
     except Exception as e:
         logger.error(f"Error processing request: {e}")
         raise HTTPException(status_code=500, detail=str(e))
