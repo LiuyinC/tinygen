@@ -57,7 +57,7 @@ uvicorn app.main:app --reload
 ```
 
 ### API Usage
-- **Endpoint**: `/generate-diff`
+- **Endpoint**: `/improve-codebase`
 - **Method**: `POST`
 - **Request Body**:
    ```json
@@ -69,7 +69,7 @@ uvicorn app.main:app --reload
 - **Response**:
    ```json
    {
-       "diff": "generated_diff_here"
+       "diff": "generated_git_diff"
    }
    ```
 
