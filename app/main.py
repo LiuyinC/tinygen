@@ -5,15 +5,19 @@ from app.core.config import settings
 from app.services.dependencies import get_gpt_service
 from app.services.gpt_service import GPTService
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from typing import AsyncGenerator
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+async def get_gpt_service_instance() -> GPTService:
+    return get_gpt_service()
+
 @asynccontextmanager
-async def lifespan(app: FastAPI, gpt_service: GPTService = Depends(get_gpt_service)) -> AsyncGenerator[None, None]:
+async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     # Startup logic
+    gpt_service: GPTService = await get_gpt_service_instance()
     yield
     # Shutdown logic
     if os.path.exists(settings.BASE_REPO_PATH):
