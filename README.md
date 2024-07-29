@@ -38,7 +38,7 @@ tinygen/
 ### Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/tinygen.git
+   git clone https://github.com/LiuyinC/tinygen.git
    cd tinygen
    ```
 2. Install the required packages:
