@@ -17,7 +17,7 @@ class EventLogger:
                event_name TEXT,
                event_data TEXT,
                ts_created TEXT)''')
-        print(event)
+        
         # Insert the event into the table
         cursor.execute('''INSERT INTO events (id, event_name, event_data, ts_created)
               VALUES (?, ?, ?, ?)''', (event.id, event.event_name, event.model_dump_json(), event.ts_created))

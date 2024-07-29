@@ -49,6 +49,10 @@ tinygen/
    ```bash
    export OPENAI_API_KEY='your_openai_api_key'
    ```
+4. Set up your local Git configuration to enable cloning public repositories:
+   ```bash
+   git config --global credential.helper store
+   ```
 
 ### Running the Application
 To start the FastAPI server, run:
@@ -69,7 +73,7 @@ uvicorn app.main:app --reload
 - **Response**:
    ```json
    {
-       "diff": "generated_git_diff"
+       "suggested_git_diff": "generated_git_diff"
    }
    ```
 
@@ -79,16 +83,16 @@ To run tests, use:
 pytest tests/
 ```
 
-## Contributing
-Contributions are welcome! Please open an issue or submit a pull request on GitHub.
+## Telemetry and Logger Service
 
-## License
-This project is licensed under the MIT License. See the LICENSE file for details.
+### Telemetry Event
 
-## Acknowledgments
-- [FastAPI](https://fastapi.tiangolo.com)
-- [OpenAI](https://openai.com)
+Telemetry events are used to log significant actions within the service or endpoints. They typically include:
+- **Unique event ID**: A unique identifier for each event.
+- **Event name**: The name of the event being logged.
+- **Timestamp of event creation**: The date and time when the event was created.
+- **Additional event-specific data**: Any other relevant information specific to the event. For example, in the `improve_codebase` event, it contains the prompt, suggestion, is_reflected, error, etc. 
 
----
+### Logger Service
 
-For more information, please refer to the [documentation](https://yourdoclink.com).
+The logger service is responsible for recording telemetry events. Usually, it will connect to a queue, like Kinesis or Kafka, but for this project, we will use a SQLite database for simplicity.
